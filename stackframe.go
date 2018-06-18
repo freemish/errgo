@@ -1,9 +1,8 @@
-package errors
+package errgo
 
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"runtime"
 	"strings"
 )
@@ -11,69 +10,36 @@ import (
 // A StackFrame contains all necessary information about to generate a line
 // in a callstack.
 type StackFrame struct {
-	// The path to the file containing this ProgramCounter
-	File string
-	// The LineNumber in that file
-	LineNumber int
-	// The Name of the function that contains this ProgramCounter
-	Name string
-	// The Package that contains this function
-	Package string
-	// The underlying ProgramCounter
-	ProgramCounter uintptr
+	Caller       uintptr
+	File         string
+	LineNumber   int
+	FunctionName string
+	Package      string
 }
 
-// NewStackFrame popoulates a stack frame object from the program counter.
-func NewStackFrame(pc uintptr) (frame StackFrame) {
-
-	frame = StackFrame{ProgramCounter: pc}
+// NewStackFrame populates a stack frame object from the program counter.
+func NewStackFrame(caller uintptr) (frame StackFrame) {
+	frame = StackFrame{Caller: caller}
 	if frame.Func() == nil {
 		return
 	}
-	frame.Package, frame.Name = packageAndName(frame.Func())
-
-	// pc -1 because the program counters we use are usually return addresses,
-	// and we want to show the line that corresponds to the function call
-	frame.File, frame.LineNumber = frame.Func().FileLine(pc - 1)
+	frame.Package, frame.FunctionName = packageAndName(frame.Func())
+	frame.File, frame.LineNumber = frame.Func().FileLine(caller - 1)
 	return
-
 }
 
 // Func returns the function that contained this frame.
 func (frame *StackFrame) Func() *runtime.Func {
-	if frame.ProgramCounter == 0 {
+	if frame.Caller == 0 {
 		return nil
 	}
-	return runtime.FuncForPC(frame.ProgramCounter)
+	return runtime.FuncForPC(frame.Caller)
 }
 
 // String returns the stackframe formatted in the same way as go does
 // in runtime/debug.Stack()
 func (frame *StackFrame) String() string {
-	str := fmt.Sprintf("%s:%d (0x%x)\n", frame.File, frame.LineNumber, frame.ProgramCounter)
-
-	source, err := frame.SourceLine()
-	if err != nil {
-		return str
-	}
-
-	return str + fmt.Sprintf("\t%s: %s\n", frame.Name, source)
-}
-
-// SourceLine gets the line of code (from File and Line) of the original source if possible.
-func (frame *StackFrame) SourceLine() (string, error) {
-	data, err := ioutil.ReadFile(frame.File)
-
-	if err != nil {
-		return "", New(err)
-	}
-
-	lines := bytes.Split(data, []byte{'\n'})
-	if frame.LineNumber <= 0 || frame.LineNumber >= len(lines) {
-		return "???", nil
-	}
-	// -1 because line-numbers are 1 based, but our array is 0 based
-	return string(bytes.Trim(lines[frame.LineNumber-1], " \t")), nil
+	return fmt.Sprintf("%s: %s: line %d", RelativeFilePath(frame.File), frame.FunctionName, frame.LineNumber)
 }
 
 func packageAndName(fn *runtime.Func) (string, string) {
@@ -99,4 +65,26 @@ func packageAndName(fn *runtime.Func) (string, string) {
 
 	name = strings.Replace(name, "·", ".", -1)
 	return pkg, name
+}
+
+// RelativeFilePath removes absolute paths - basically cuts
+// out addresses at /src/ and before.
+func RelativeFilePath(file string) string {
+	folders := strings.Split(file, "/")
+	count := 0
+	for _, folder := range folders {
+		if folder == "src" {
+			break
+		}
+		count++
+	}
+	if count >= len(folders) {
+		return file
+	}
+	buf := bytes.Buffer{}
+	for _, folder := range folders[count+1:] {
+		buf.WriteString("/")
+		buf.WriteString(folder)
+	}
+	return buf.String()
 }

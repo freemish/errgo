@@ -1,5 +1,6 @@
-package errors
+package errgo
 
+/*
 import (
 	"bytes"
 	"fmt"
@@ -170,7 +171,7 @@ func TestWrapPrefixError(t *testing.T) {
 
 func ExampleErrorf(x int) (int, error) {
 	if x%2 == 1 {
-		return 0, Errorf("can only halve even numbers, got %d", x)
+		return 0, fmt.Errorf("can only halve even numbers, got %d", x)
 	}
 	return x / 2, nil
 }
@@ -302,3 +303,4 @@ func callersToFrames(callers []uintptr) []runtime.Frame {
 		}
 	}
 }
+*/

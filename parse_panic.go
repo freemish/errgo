@@ -1,6 +1,7 @@
-package errors
+package errgo
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 )
@@ -13,7 +14,7 @@ func (p uncaughtPanic) Error() string {
 
 // ParsePanic allows you to get an error object from the output of a go program
 // that panicked. This is particularly useful with https://github.com/mitchellh/panicwrap.
-func ParsePanic(text string) (*Error, error) {
+func ParsePanic(text string) (*StackableError, error) {
 	lines := strings.Split(text, "\n")
 
 	state := "start"
@@ -29,7 +30,7 @@ func ParsePanic(text string) (*Error, error) {
 				message = strings.TrimPrefix(line, "panic: ")
 				state = "seek"
 			} else {
-				return nil, Errorf("bugsnag.panicParser: Invalid line (no prefix): %s", line)
+				return nil, fmt.Errorf("bugsnag.panicParser: Invalid line (no prefix): %s", line)
 			}
 
 		} else if state == "seek" {
@@ -51,7 +52,7 @@ func ParsePanic(text string) (*Error, error) {
 			i++
 
 			if i >= len(lines) {
-				return nil, Errorf("bugsnag.panicParser: Invalid line (unpaired): %s", line)
+				return nil, fmt.Errorf("bugsnag.panicParser: Invalid line (unpaired): %s", line)
 			}
 
 			frame, err := parsePanicFrame(line, lines[i], createdBy)
@@ -68,9 +69,9 @@ func ParsePanic(text string) (*Error, error) {
 	}
 
 	if state == "done" || state == "parsing" {
-		return &Error{Err: uncaughtPanic{message}, frames: stack}, nil
+		return &StackableError{Err: uncaughtPanic{message}, frames: stack}, nil
 	}
-	return nil, Errorf("could not parse panic: %v", text)
+	return nil, fmt.Errorf("could not parse panic: %v", text)
 }
 
 // The lines we're passing look like this:
@@ -80,7 +81,7 @@ func ParsePanic(text string) (*Error, error) {
 func parsePanicFrame(name string, line string, createdBy bool) (*StackFrame, error) {
 	idx := strings.LastIndex(name, "(")
 	if idx == -1 && !createdBy {
-		return nil, Errorf("bugsnag.panicParser: Invalid line (no call): %s", name)
+		return nil, fmt.Errorf("bugsnag.panicParser: Invalid line (no call): %s", name)
 	}
 	if idx != -1 {
 		name = name[:idx]
@@ -99,12 +100,12 @@ func parsePanicFrame(name string, line string, createdBy bool) (*StackFrame, err
 	name = strings.Replace(name, "·", ".", -1)
 
 	if !strings.HasPrefix(line, "\t") {
-		return nil, Errorf("bugsnag.panicParser: Invalid line (no tab): %s", line)
+		return nil, fmt.Errorf("bugsnag.panicParser: Invalid line (no tab): %s", line)
 	}
 
 	idx = strings.LastIndex(line, ":")
 	if idx == -1 {
-		return nil, Errorf("bugsnag.panicParser: Invalid line (no line number): %s", line)
+		return nil, fmt.Errorf("bugsnag.panicParser: Invalid line (no line number): %s", line)
 	}
 	file := line[1:idx]
 
@@ -115,13 +116,13 @@ func parsePanicFrame(name string, line string, createdBy bool) (*StackFrame, err
 
 	lno, err := strconv.ParseInt(number, 10, 32)
 	if err != nil {
-		return nil, Errorf("bugsnag.panicParser: Invalid line (bad line number): %s", line)
+		return nil, fmt.Errorf("bugsnag.panicParser: Invalid line (bad line number): %s", line)
 	}
 
 	return &StackFrame{
-		File:       file,
-		LineNumber: int(lno),
-		Package:    pkg,
-		Name:       name,
+		File:         file,
+		LineNumber:   int(lno),
+		Package:      pkg,
+		FunctionName: name,
 	}, nil
 }

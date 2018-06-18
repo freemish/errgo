@@ -1,5 +1,6 @@
-package errors
+package errgo
 
+/*
 import (
 	"reflect"
 	"testing"
@@ -140,3 +141,4 @@ func TestParsePanic(t *testing.T) {
 		}
 	}
 }
+*/
