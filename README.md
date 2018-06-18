@@ -1,6 +1,6 @@
 freemish/errgo
 ================
-This package is a fork of go-errors/go and will change it in the following ways, and possibly others:
+This package is a fork of go-errors/errors and will change it in the following ways, and possibly others:
 
 - Ability to easily access root error message
 - Make stacktrace string (more) configurable by users, and change the default stacktrace
