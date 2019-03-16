@@ -6,13 +6,14 @@ import (
 	"runtime"
 )
 
-// The maximum number of stackframes on any error.
+// MaxStackDepth is the maximum number of stackframes on any error.
 var MaxStackDepth = 50
 
-// Error is an error with an attached stacktrace. It can be used
+// StackableError is an error with an attached stacktrace. It can be used
 // wherever the builtin error interface is expected.
 type StackableError struct {
 	Err      error
+	Code     string
 	Prefixes []string
 	stack    []uintptr
 	frames   []StackFrame
